@@ -5,6 +5,11 @@ esphome:
   name: matouchai28-self
   friendly_name: MatouchAi28_self
 
+  on_boot: 
+    priority: -10
+    then:
+      - lambda: 'lv_obj_add_state(id(light_slider), LV_STATE_DISABLED);'
+
 
 globals:
   - id: remote_brightness
@@ -138,6 +143,7 @@ lvgl:
                     - lvgl.slider.update:
                         id: light_slider
                         value: !lambda 'return id(remote_brightness);'
+                    - lambda: 'lv_obj_clear_state(id(light_slider), LV_STATE_DISABLED);'
                   else:
                     - logger.log: "Kitchen light OFF"
                     - homeassistant.action:
@@ -150,6 +156,7 @@ lvgl:
                     - lvgl.slider.update:
                         id: light_slider
                         value: 0
+                    - lambda: 'lv_obj_add_state(id(light_slider), LV_STATE_DISABLED);'
         - slider:
             id: light_slider
             x: 53
