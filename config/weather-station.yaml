@@ -1,0 +1,154 @@
+
+esphome:
+  name: ha-weather 
+  friendly_name: "HA Weather Station"
+  project:
+    name: "makerfabs.weather_station"
+    version: "1.0.0"
+
+# 外部组件配置 - ESPHome 2025.8更新的语法
+external_components:
+  - source:
+      type: local
+      path: common_components
+    components: [ssap10]              # 明确指定要使用的组件名称
+    refresh: never                    # 本地组件不需要刷新
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+    version: recommended
+
+uart:
+  - id: ssap10_uart
+    rx_pin: GPIO21
+    tx_pin: GPIO22
+    baud_rate: 9600
+    data_bits: 8
+    stop_bits: 1
+    parity: NONE
+    # debug:
+    #   direction: BOTH                 # 监控发送和接收的数据
+    #   dummy_receiver: false
+    #   after:
+    #     delimiter: [0x42, 0x4d]      # 寻找PMS协议帧头
+    #   sequence:
+    #     - lambda: |-
+    #         UARTDebug::log_hex(direction, bytes, ':');
+
+logger:
+  level: DEBUG
+  # level: VERBOSE                      # 最详细的日志级别
+  # logs:
+  #   uart: VERBOSE                     # UART通信日志
+  #   uart.arduino_esp32: VERBOSE       # ESP32 UART驱动日志
+  #   ssap10: VERBOSE                   # 我们的传感器日志
+  #   component: INFO      
+
+api:
+  encryption:
+    key: "XFB8BOHYUWJIPMDUTOiFrVUIFpTj3dwitLuwMCnhy3U="
+  # API服务注册
+  # services:
+  #   - service: restart_device
+  #     then:
+  #       - restart:
+
+ota:
+  - platform: esphome
+    password: "4bd8d398ff9f3b6559b89d6280451bb5"
+    # 安全模式配置
+    # safe_mode: true
+    # reboot_timeout: 10min
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  fast_connect: true                  # 快速连接模式
+  reboot_timeout: 15min               # 重启超时时间
+  
+  ap:
+    ssid: "Ha-Weather Fallback Hotspot"
+    password: "nFY2nMgi9izu"
+
+captive_portal:
+
+i2c:
+  - id: i2c_bus
+    sda: GPIO4
+    scl: GPIO5
+    scan: true
+    frequency: 400kHz
+
+sensor:
+  - platform: ssap10
+    name: "PM2.5 Concentration"
+    id: pm25_sensor
+    uart_id: ssap10_uart
+    update_interval: 60s
+
+  - platform: aht10
+    i2c_id: i2c_bus
+    temperature:
+      name: "Temperature"
+      id: temperature_sensor
+      accuracy_decimals: 1
+    humidity:
+      name: "Humidity" 
+      id: humidity_sensor
+      accuracy_decimals: 1
+    update_interval: 10s
+
+  - platform: pulse_counter
+    pin: 
+      number: GPIO27
+      mode:
+        input: true                   # 输入模式
+        pullup: true                  # 启用上拉电阻
+    name: "Wind Speed"
+    id: wind_speed_sensor
+    unit_of_measurement: 'm/s'
+    accuracy_decimals: 2              # 提高精度
+    update_interval: 5s               # 更频繁的更新
+    filters:
+      - multiply: 0.002               # 转换系数
+      - sliding_window_moving_average: # 滑动窗口平均
+          window_size: 6
+          send_every: 3
+
+  # BMP280气压传感器配置 - 2025.8改进版本
+  - platform: bmp280_i2c
+    i2c_id: i2c_bus
+    address: 0x76
+    pressure:
+      name: "Atmospheric Pressure"
+      id: pressure_sensor
+      accuracy_decimals: 1
+    temperature:                      # 可同时读取温度
+      name: "BMP280 Temperature"
+      id: bmp_temperature_sensor
+      accuracy_decimals: 1
+    update_interval: 10s
+    # 传感器IIR滤波器配置
+    iir_filter: 16X
+
+  - platform: internal_temperature    # ESP32内部温度传感器
+    name: "ESP32 Internal Temperature"
+    id: esp_internal_temp
+
+  - platform: wifi_signal
+    name: "WiFi Signal Strength"
+    id: wifi_signal_sensor
+    update_interval: 60s
+
+  # 运行时间传感器
+  - platform: uptime
+    name: "Device Uptime"
+    id: uptime_sensor
+    update_interval: 60s
+
+# 2025.8新功能：看门狗定时器
+# watchdog:
+#   timeout: 30s                        # 看门狗超时时间
