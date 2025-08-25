@@ -3,7 +3,7 @@ substitutions:
 
 esphome:
   name: matouchai28-company
-  friendly_name: MatouchAi28_Company
+  friendly_name: MatouchAi28-Company
 
   on_boot: 
     priority: -10
@@ -159,7 +159,7 @@ lvgl:
         - slider:
             id: light_slider
             x: 53
-            y: 195
+            y: 290
             width: 150
             height: 20
             value: 0
