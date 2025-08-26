@@ -1,6 +1,5 @@
 """ssap10/__init__.py
 
-ESPHome 2025.8外部组件配置
 这个文件定义了SSAP10组件，但不直接实现传感器平台
 """
 
@@ -26,6 +25,6 @@ CONFIG_SCHEMA = cv.Schema({
 }).extend(cv.polling_component_schema("15s"))
 
 async def to_code(config):
-    """生成基础组件代码"""
+    
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)

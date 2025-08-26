@@ -22,9 +22,6 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
-  - id: current_page_index
-    type: int
-    initial_value: '0'
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -48,7 +45,7 @@ psram:
   speed: 80MHz
 
 logger:
-  level: INFO
+  level: DEBUG
 
 api:
   encryption:
@@ -95,20 +92,12 @@ i2c:
     scan: False
 
 font:
-  # - file: "gfonts://Roboto"
-  #   id: my_font
-  #   size: 20
-  # - file: "gfonts://Roboto"
-  #   id: small_font
-  #   size: 16
-  - file: "https://github.com/FortAwesome/Font-Awesome/raw/6.x/webfonts/fa-solid-900.ttf"
-    id: fontawesome_16
+  - file: "gfonts://Roboto"
+    id: my_font
+    size: 20
+  - file: "gfonts://Roboto"
+    id: small_font
     size: 16
-    glyphs: [
-      "\uF053",  # <
-      "\uF054",  # >
-      "\uF015",  # home
-    ]
 
 display:
   - platform: ili9xxx
@@ -130,7 +119,6 @@ display:
     invert_colors: True
     auto_clear_enabled: false
     update_interval: never
-
 
 lvgl:
   pages:
@@ -178,7 +166,7 @@ lvgl:
         - slider:
             id: light_slider
             x: 53
-            y: 240
+            y: 290
             width: 150
             height: 20
             value: 0
@@ -205,7 +193,7 @@ lvgl:
         - label:
             id: brightness_label
             x: 110
-            y: 210
+            y: 270
             text: 0%
         - label:
             id: ha_weather_temperature_label
@@ -216,7 +204,7 @@ lvgl:
             id: ha_weather_humidity_label
             x: 20
             y: 80
-            text: "Humi: 0%"
+            text: "Humi: 0%%"
         - label:
             id: ha_weather_windspeed_label
             x: 20
@@ -227,51 +215,6 @@ lvgl:
             x: 20
             y: 150
             text: "PM2.5: 0.0 ug/m3"
-  style_definitions:
-    - id: header_footer
-      bg_color: 0x2F8CD8
-      bg_grad_color: 0x005782
-      bg_grad_dir: VER
-      bg_opa: COVER
-      border_opa: TRANSP
-      radius: 0
-      pad_all: 0
-      pad_row: 0
-      pad_column: 0
-      border_color: 0x0077b3
-      text_color: 0xFFFFFF
-      width: 100%
-      height: 30
-  top_layer:
-    widgets:
-      - buttonmatrix:
-          align: bottom_mid
-          styles: header_footer
-          pad_all: 0
-          outline_width: 0
-          id: top_layer
-          items:
-            styles: header_footer
-          rows:
-            - buttons:
-              - id: page_prev
-                text: "\uF053"
-                on_press:
-                  then:
-                    # lvgl.page.previous:
-                    script.execute: go_prev_page
-              - id: page_home
-                text: "\uF015"
-                on_press:
-                  then:
-                    lvgl.page.show: main_page
-              - id: page_next
-                text: "\uF054"
-                on_press:
-                  then:
-                    # lvgl.page.next:
-                    # lvgl.page.show: pm25_page
-                    script.execute: go_next_page
 
   on_idle:
     timeout: !lambda "return (id(display_timeout).state * 1000);"
@@ -418,20 +361,3 @@ binary_sensor:
                 id: light_slider
                 value: 0
             - lambda: 'lv_obj_add_state(id(light_slider), LV_STATE_DISABLED);'
-
-script:
-  - id: go_next_page
-    then:
-      - lambda: |-
-          int current = id(current_page_index);
-          int next = (current + 1) % 3;
-          id(current_page_index) = next;
-      - lvgl.page.next:
-  
-  - id: go_prev_page
-    then:
-      - lambda: |-
-          int current = id(current_page_index);
-          int prev = (current - 1 + 3) % 3;
-          id(current_page_index) = prev;
-      - lvgl.page.previous:

@@ -1,12 +1,11 @@
 // 头文件保护，防止重复包含
 #pragma once
 
-// 包含ESPHome核心组件头文件
 #include "esphome/core/component.h"
-// 包含ESPHome传感器组件头文件
 #include "esphome/components/sensor/sensor.h"
-// 包含ESPHome UART组件头文件，用于串口通信
 #include "esphome/components/uart/uart.h"
+
+#define BUFFER_SIZE (32 * 6)
 
 // ESPHome命名空间
 namespace esphome {
@@ -67,7 +66,13 @@ class SSAP10Sensor : public sensor::Sensor, public PollingComponent, public uart
   bool sensor_ready_ = false;           // 传感器是否完成30秒稳定期
   
   // 连接测试方法
-  void test_connection();
+  uint8_t data_buffer_[BUFFER_SIZE];
+  int buffer_index_ = 0;
+
+  void read_to_buffer();
+  bool find_valid_frame(uint8_t* frame_data);
+  bool validate_checksum(const uint8_t* data);
+  void process_buffer();
   // 注意：这里不需要添加额外的成员变量或方法
   // UARTDevice基类已经提供了所有必要的UART操作方法：
   // - set_uart_parent(): 设置UART总线父级

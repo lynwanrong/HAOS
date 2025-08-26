@@ -1,3 +1,12 @@
+# Logs:
+#     ssap10组件轮询：5s
+#     风速          : 5s
+#     BMP280        : 10s
+#     AHT10         : 10s
+
+
+
+
 
 esphome:
   name: ha-weather 
@@ -6,12 +15,12 @@ esphome:
     name: "makerfabs.weather_station"
     version: "1.0.0"
 
-# 外部组件配置 - ESPHome 2025.8更新的语法
+# 外部组件配置
 external_components:
   - source:
       type: local
       path: common_components
-    components: [ssap10]              # 明确指定要使用的组件名称
+    components: [ssap10]
     refresh: never                    # 本地组件不需要刷新
 
 esp32:
@@ -19,6 +28,10 @@ esp32:
   framework:
     type: esp-idf
     version: recommended
+    sdkconfig_options:
+      CONFIG_ESP_TASK_WDT: y
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: (int)30
+      CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0: y
 
 uart:
   - id: ssap10_uart
@@ -28,23 +41,14 @@ uart:
     data_bits: 8
     stop_bits: 1
     parity: NONE
-    # debug:
-    #   direction: BOTH                 # 监控发送和接收的数据
-    #   dummy_receiver: false
-    #   after:
-    #     delimiter: [0x42, 0x4d]      # 寻找PMS协议帧头
-    #   sequence:
-    #     - lambda: |-
-    #         UARTDebug::log_hex(direction, bytes, ':');
 
 logger:
-  level: DEBUG
-  # level: VERBOSE                      # 最详细的日志级别
+  level: INFO
   # logs:
-  #   uart: VERBOSE                     # UART通信日志
-  #   uart.arduino_esp32: VERBOSE       # ESP32 UART驱动日志
-  #   ssap10: VERBOSE                   # 我们的传感器日志
-  #   component: INFO      
+    # uart: INFO
+    # art.arduino_esp32: VERBOSE       # ESP32 UART驱动日志
+    # ssap10: DEBUG
+    # component: INFO      
 
 api:
   encryption:
@@ -87,7 +91,7 @@ sensor:
     name: "PM2.5 Concentration"
     id: pm25_sensor
     uart_id: ssap10_uart
-    update_interval: 60s
+    update_interval: 5s
 
   - platform: aht10
     i2c_id: i2c_bus
@@ -95,6 +99,8 @@ sensor:
       name: "Temperature"
       id: temperature_sensor
       accuracy_decimals: 1
+      unit_of_measurement: '°C'
+      device_class: temperature
     humidity:
       name: "Humidity" 
       id: humidity_sensor
@@ -105,20 +111,20 @@ sensor:
     pin: 
       number: GPIO27
       mode:
-        input: true                   # 输入模式
-        pullup: true                  # 启用上拉电阻
+        input: true
+        pullup: true
     name: "Wind Speed"
     id: wind_speed_sensor
     unit_of_measurement: 'm/s'
     accuracy_decimals: 2              # 提高精度
-    update_interval: 5s               # 更频繁的更新
+    update_interval: 5s
     filters:
       - multiply: 0.002               # 转换系数
       - sliding_window_moving_average: # 滑动窗口平均
           window_size: 6
           send_every: 3
 
-  # BMP280气压传感器配置 - 2025.8改进版本
+  # BMP280气压传感器配置
   - platform: bmp280_i2c
     i2c_id: i2c_bus
     address: 0x76
@@ -126,10 +132,12 @@ sensor:
       name: "Atmospheric Pressure"
       id: pressure_sensor
       accuracy_decimals: 1
-    temperature:                      # 可同时读取温度
+    temperature:
       name: "BMP280 Temperature"
       id: bmp_temperature_sensor
       accuracy_decimals: 1
+      unit_of_measurement: '°C'
+      device_class: temperature
     update_interval: 10s
     # 传感器IIR滤波器配置
     iir_filter: 16X
@@ -149,6 +157,6 @@ sensor:
     id: uptime_sensor
     update_interval: 60s
 
-# 2025.8新功能：看门狗定时器
+
 # watchdog:
-#   timeout: 30s                        # 看门狗超时时间
+#   timeout: 30s
