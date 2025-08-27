@@ -1,7 +1,7 @@
-"""arduino_dimmer/output.py
+from esphome.codegen import cg
+from esphome.components import output
+import esphome.config_validation as cv
+from esphome.const import CONF_ID
 
-Output platform for arduino_dimmer component
-"""
+CODEOWNERS = ["@xiaren"]
 
-# Import everything from __init__.py
-from . import *

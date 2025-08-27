@@ -43,7 +43,7 @@ uart:
     parity: NONE
 
 logger:
-  level: INFO
+  level: DEBUG
   # logs:
     # uart: INFO
     # art.arduino_esp32: VERBOSE       # ESP32 UART驱动日志
