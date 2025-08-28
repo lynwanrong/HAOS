@@ -101,7 +101,7 @@ font:
   # - file: "gfonts://Roboto"
   #   id: small_font
   #   size: 16
-  - file: "https://github.com/FortAwesome/Font-Awesome/raw/6.x/webfonts/fa-solid-900.ttf"
+  - file: "fonts/fa-solid-900.ttf"
     id: fontawesome_16
     size: 16
     glyphs: [
@@ -109,12 +109,40 @@ font:
       "\uF054",  # >
       "\uF015",  # home
     ]
+  - file: "fonts/weathericons-regular-webfont.ttf"
+    id: weather_font
+    size: 24
+    glyphs: [
+      "\uF055",  # Temperature
+      "\uF07A",  # Wind
+    ]
+
+# display:
+#   - platform: ili9xxx
+#     id: tft_display
+#     model: st7789v
+#     spi_id: display_spi
+#     cs_pin: GPIO40
+#     dc_pin: GPIO21
+#     # reset_pin: GPIO4 
+#     data_rate: 40MHz
+#     dimensions:
+#       width: 240
+#       height: 320
+#     transform:
+#       swap_xy: False
+#       mirror_x: False
+#       mirror_y: False
+#     color_order: BGR
+#     invert_colors: True
+#     auto_clear_enabled: false
+#     update_interval: never
 
 display:
-  - platform: ili9xxx
+  - platform: mipi_spi
     id: tft_display
     model: st7789v
-    spi_id: display_spi
+    # spi_id: display_spi
     cs_pin: GPIO40
     dc_pin: GPIO21
     # reset_pin: GPIO4 
@@ -133,7 +161,101 @@ display:
 
 
 lvgl:
+  style_definitions:
+    - id: header_footer
+      bg_color: 0x2F8CD8
+      bg_grad_color: 0x005782
+      bg_grad_dir: VER
+      bg_opa: COVER
+      border_opa: TRANSP
+      radius: 0
+      pad_all: 0
+      pad_row: 0
+      pad_column: 0
+      border_color: 0x0077b3
+      text_color: 0xFFFFFF
+      width: 100%
+      height: 30
+    - id: background_style
+      bg_color: 0xeceff4
+      bg_opa: COVER
   pages:
+    - id: ui_page
+      styles: background_style
+      widgets:
+        - arc:
+            x: 20
+            y: 50
+            id: arc_temperature
+            value: 0
+            height: 200
+            width: 200
+            min_value: 0
+            max_value: 100
+            adjustable: false
+            change_rate: 5
+            start_angle: 90
+            end_angle: 270
+        - label:
+            id: arc_temperature_icon_label
+            x: 133
+            y: 230
+            text_font: weather_font
+            text: "\uF055"
+        - label:
+            id: arc_temperature_label
+            x: 133
+            y: 47
+            # text_font: weather_font
+            text: N/A
+        - arc:
+            x: 60
+            y: 90
+            id: arc_humidity
+            value: 0
+            height: 120
+            width: 120
+            min_value: 0
+            max_value: 100
+            adjustable: false
+            change_rate: 5
+            start_angle: 90
+            end_angle: 270
+        - label:
+            id: arc_humidity_icon_label
+            x: 133
+            y: 185
+            text_font: weather_font
+            text: "\uF07A"
+        - label:
+            id: arc_humidity_label
+            x: 133
+            y: 87
+            text: N/A
+        - arc:
+            id: arc_pm25
+            x: 80
+            y: 110
+            min_value: 0
+            max_value: 100
+            adjustable: false
+            change_rate: 5
+            start_angle: 90
+            end_angle: 270
+            value: 0
+            height: 80
+            width: 80
+        # - label:
+        #     id: arc_humidity_icon_label
+        #     x: 133
+        #     y: 185
+        #     text_font: weather_font
+        #     text: "\uF07A"
+        # - label:
+        #     id: arc_humidity_label
+        #     x: 133
+        #     y: 87
+        #     text: N/A
     - id: main_page # Default page
       widgets:
         - switch:
@@ -227,21 +349,6 @@ lvgl:
             x: 20
             y: 150
             text: "PM2.5: 0.0 ug/m3"
-  style_definitions:
-    - id: header_footer
-      bg_color: 0x2F8CD8
-      bg_grad_color: 0x005782
-      bg_grad_dir: VER
-      bg_opa: COVER
-      border_opa: TRANSP
-      radius: 0
-      pad_all: 0
-      pad_row: 0
-      pad_column: 0
-      border_color: 0x0077b3
-      text_color: 0xFFFFFF
-      width: 100%
-      height: 30
   top_layer:
     widgets:
       - buttonmatrix:
@@ -346,6 +453,12 @@ sensor:
             char buffer[20];
             snprintf(buffer, sizeof(buffer), "Temp: %.1f°C", x);
             return buffer;
+      - lvgl.label.update:
+          id: arc_temperature_label
+          text: !lambda 'return std::to_string((int)std::round(x)) + "°C";'
+      - lvgl.arc.update:
+          id: arc_temperature
+          value: !lambda 'return (int)x;'
   - platform: homeassistant
     id: remote_humidity
     entity_id: sensor.ha_weather_humidity
@@ -357,6 +470,12 @@ sensor:
             char buffer[20];
             snprintf(buffer, sizeof(buffer), "Humi: %.1f%%", x);
             return buffer;
+      - lvgl.label.update:
+          id: arc_humidity_label
+          text: !lambda 'return std::to_string((int)std::round(x)) + "%";'
+      - lvgl.arc.update:
+          id: arc_humidity
+          value: !lambda 'return (int)x;'
   - platform: homeassistant
     id: remote_windspeed
     entity_id: sensor.ha_weather_wind_speed
