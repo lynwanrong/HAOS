@@ -1,132 +1,198 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome import pins
+import esphome.codegen as cg
 from esphome.components import display
-from esphome.const import (
-    CONF_HEIGHT,
-    CONF_ID,
-    CONF_WIDTH,
-    CONF_DC_PIN,
-    CONF_RESET_PIN,
-    CONF_DIMENSIONS,
-    CONF_HSYNC_PIN,
-    CONF_VSYNC_PIN,
+from esphome.components.esp32 import const, only_on_variant
+from esphome.components.mipi import (
     CONF_DE_PIN,
-    CONF_PCLK_PIN,
-    CONF_DATA_PINS,
-    CONF_RED,
-    CONF_GREEN,
-    CONF_BLUE,
-    CONF_PCLK_FREQUENCY,
     CONF_HSYNC_BACK_PORCH,
     CONF_HSYNC_FRONT_PORCH,
     CONF_HSYNC_PULSE_WIDTH,
+    CONF_PCLK_FREQUENCY,
+    CONF_PCLK_INVERTED,
+    CONF_PCLK_PIN,
     CONF_VSYNC_BACK_PORCH,
     CONF_VSYNC_FRONT_PORCH,
     CONF_VSYNC_PULSE_WIDTH,
 )
+import esphome.config_validation as cv
+from esphome.const import (
+    CONF_BLUE,
+    CONF_COLOR_ORDER,
+    CONF_DATA_PINS,
+    CONF_DIMENSIONS,
+    CONF_ENABLE_PIN,
+    CONF_GREEN,
+    CONF_HEIGHT,
+    CONF_HSYNC_PIN,
+    CONF_ID,
+    CONF_IGNORE_STRAPPING_WARNING,
+    CONF_INVERT_COLORS,
+    CONF_LAMBDA,
+    CONF_NUMBER,
+    CONF_OFFSET_HEIGHT,
+    CONF_OFFSET_WIDTH,
+    CONF_RED,
+    CONF_RESET_PIN,
+    CONF_VSYNC_PIN,
+    CONF_WIDTH,
+)
 
 DEPENDENCIES = ["esp32"]
-CODEOWNERS = ["@xiaren"]
 
 rgb565_ns = cg.esphome_ns.namespace("rgb565")
-RGB565Display = rgb565_ns.class_("RGB565Display", display.DisplayBuffer)
+RGB_565 = rgb565_ns.class_("RGB565", display.Display, cg.Component)
+ColorOrder = display.display_ns.enum("ColorMode")
 
-CONF_RED_PINS = "red_pins"
-CONF_GREEN_PINS = "green_pins"
-CONF_BLUE_PINS = "blue_pins"
+COLOR_ORDERS = {
+    "RGB": ColorOrder.COLOR_ORDER_RGB,
+    "BGR": ColorOrder.COLOR_ORDER_BGR,
+}
+DATA_PIN_SCHEMA = pins.internal_gpio_output_pin_schema
 
-def validate_data_pins(value):
-    if CONF_DATA_PINS in value:
-        # Using simplified data_pins definition
-        return value
-    
-    if CONF_RED_PINS not in value:
-        raise cv.Invalid("Either 'data_pins' or 'red_pins' must be defined")
-    if CONF_GREEN_PINS not in value:
-        raise cv.Invalid("Either 'data_pins' or 'green_pins' must be defined")
-    if CONF_BLUE_PINS not in value:
-        raise cv.Invalid("Either 'data_pins' or 'blue_pins' must be defined")
-    return value
+
+def data_pin_validate(value):
+    """
+    It is safe to use strapping pins as RGB output data bits, as they are outputs only,
+    and not initialised until after boot.
+    """
+    if not isinstance(value, dict):
+        try:
+            return DATA_PIN_SCHEMA(
+                {CONF_NUMBER: value, CONF_IGNORE_STRAPPING_WARNING: True}
+            )
+        except cv.Invalid:
+            pass
+    return DATA_PIN_SCHEMA(value)
+
+
+def data_pin_set(length):
+    return cv.All(
+        [data_pin_validate],
+        cv.Length(min=length, max=length, msg=f"Exactly {length} data pins required"),
+    )
+
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
-        {
-            cv.GenerateID(): cv.declare_id(RGB565Display),
-            cv.Required(CONF_DIMENSIONS): cv.Any(
-                cv.dimensions,
-                cv.Schema({
-                    cv.Required(CONF_WIDTH): cv.int_,
-                    cv.Required(CONF_HEIGHT): cv.int_,
-                }),
-            ),
-            cv.Optional(CONF_DC_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
-            cv.Required(CONF_PCLK_PIN): cv.int_range(min=0, max=48),
-            cv.Required(CONF_DE_PIN): cv.int_range(min=0, max=48),
-            cv.Required(CONF_HSYNC_PIN): cv.int_range(min=0, max=48),
-            cv.Required(CONF_VSYNC_PIN): cv.int_range(min=0, max=48),
-            cv.Optional(CONF_DATA_PINS): cv.Schema({
-                cv.Required(CONF_RED): cv.All(cv.ensure_list, [cv.int_range(min=0, max=48)], cv.Length(min=5, max=5)),
-                cv.Required(CONF_GREEN): cv.All(cv.ensure_list, [cv.int_range(min=0, max=48)], cv.Length(min=6, max=6)),
-                cv.Required(CONF_BLUE): cv.All(cv.ensure_list, [cv.int_range(min=0, max=48)], cv.Length(min=5, max=5)),
-            }),
-            cv.Optional(CONF_RED_PINS): cv.All(cv.ensure_list, [cv.int_range(min=0, max=48)], cv.Length(min=5, max=5)),
-            cv.Optional(CONF_GREEN_PINS): cv.All(cv.ensure_list, [cv.int_range(min=0, max=48)], cv.Length(min=6, max=6)),
-            cv.Optional(CONF_BLUE_PINS): cv.All(cv.ensure_list, [cv.int_range(min=0, max=48)], cv.Length(min=5, max=5)),
-            cv.Optional(CONF_PCLK_FREQUENCY, default="16MHz"): cv.frequency,
-            cv.Optional(CONF_HSYNC_BACK_PORCH, default=0): cv.int_,
-            cv.Optional(CONF_HSYNC_FRONT_PORCH, default=0): cv.int_,
-            cv.Optional(CONF_HSYNC_PULSE_WIDTH, default=0): cv.int_,
-            cv.Optional(CONF_VSYNC_BACK_PORCH, default=0): cv.int_,
-            cv.Optional(CONF_VSYNC_FRONT_PORCH, default=0): cv.int_,
-            cv.Optional(CONF_VSYNC_PULSE_WIDTH, default=0): cv.int_,
-        }
-    ).extend(cv.COMPONENT_SCHEMA),
-    validate_data_pins,
+        cv.Schema(
+            {
+                cv.GenerateID(): cv.declare_id(RGB_565),
+                cv.Required(CONF_DIMENSIONS): cv.Any(
+                    cv.dimensions,
+                    cv.Schema(
+                        {
+                            cv.Required(CONF_WIDTH): cv.int_,
+                            cv.Required(CONF_HEIGHT): cv.int_,
+                            cv.Optional(CONF_OFFSET_HEIGHT, default=0): cv.int_,
+                            cv.Optional(CONF_OFFSET_WIDTH, default=0): cv.int_,
+                        }
+                    ),
+                ),
+                cv.Optional(CONF_PCLK_FREQUENCY, default="16MHz"): cv.All(
+                    cv.frequency, cv.Range(min=4e6, max=30e6)
+                ),
+                cv.Optional(CONF_PCLK_INVERTED, default=True): cv.boolean,
+                cv.Required(CONF_DATA_PINS): cv.Any(
+                    data_pin_set(16),
+                    cv.Schema(
+                        {
+                            cv.Required(CONF_RED): data_pin_set(5),
+                            cv.Required(CONF_GREEN): data_pin_set(6),
+                            cv.Required(CONF_BLUE): data_pin_set(5),
+                        }
+                    ),
+                ),
+                cv.Optional(CONF_COLOR_ORDER): cv.one_of(
+                    *COLOR_ORDERS.keys(), upper=True
+                ),
+                cv.Optional(CONF_INVERT_COLORS, default=False): cv.boolean,
+                cv.Required(CONF_DE_PIN): pins.internal_gpio_output_pin_schema,
+                cv.Required(CONF_PCLK_PIN): pins.internal_gpio_output_pin_schema,
+                cv.Required(CONF_HSYNC_PIN): pins.internal_gpio_output_pin_schema,
+                cv.Required(CONF_VSYNC_PIN): pins.internal_gpio_output_pin_schema,
+                cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
+                cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
+                cv.Optional(CONF_HSYNC_PULSE_WIDTH, default=10): cv.int_,
+                cv.Optional(CONF_HSYNC_BACK_PORCH, default=10): cv.int_,
+                cv.Optional(CONF_HSYNC_FRONT_PORCH, default=20): cv.int_,
+                cv.Optional(CONF_VSYNC_PULSE_WIDTH, default=10): cv.int_,
+                cv.Optional(CONF_VSYNC_BACK_PORCH, default=10): cv.int_,
+                cv.Optional(CONF_VSYNC_FRONT_PORCH, default=10): cv.int_,
+            }
+        )
+    ),
+    only_on_variant(supported=[const.VARIANT_ESP32S3]),
+    cv.only_with_esp_idf,
 )
 
+
 async def to_code(config):
-    # Create the display instance
     var = cg.new_Pvariable(config[CONF_ID])
-    
-    # Setup display dimensions
-    if isinstance(config[CONF_DIMENSIONS], dict):
-        cg.add(var.set_dimensions(config[CONF_DIMENSIONS][CONF_WIDTH], config[CONF_DIMENSIONS][CONF_HEIGHT]))
-    else:
-        (width, height) = config[CONF_DIMENSIONS]
-        cg.add(var.set_dimensions(width, height))
-    
-    # Setup pins
-    if CONF_DC_PIN in config:
-        dc = await cg.gpio_pin_expression(config[CONF_DC_PIN])
-        cg.add(var.set_dc_pin(dc))
-        
-    if CONF_RESET_PIN in config:
-        reset = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
-        cg.add(var.set_reset_pin(reset))
-        
-    # RGB timing pins
-    cg.add(var.set_pclk_pin(config[CONF_PCLK_PIN]))
-    cg.add(var.set_de_pin(config[CONF_DE_PIN]))
-    cg.add(var.set_hsync_pin(config[CONF_HSYNC_PIN]))
-    cg.add(var.set_vsync_pin(config[CONF_VSYNC_PIN]))
-    
-    # Data pins
-    if CONF_DATA_PINS in config:
-        data_pins = config[CONF_DATA_PINS]
-        cg.add(var.set_data_pins(data_pins[CONF_RED], data_pins[CONF_GREEN], data_pins[CONF_BLUE]))
-    else:
-        cg.add(var.set_data_pins(config[CONF_RED_PINS], config[CONF_GREEN_PINS], config[CONF_BLUE_PINS]))
-    
-    # Timing parameters
-    cg.add(var.set_pclk_frequency(config[CONF_PCLK_FREQUENCY]))
+    await display.register_display(var, config)
+
+    cg.add(var.set_color_mode(COLOR_ORDERS[config[CONF_COLOR_ORDER]]))
+    cg.add(var.set_invert_colors(config[CONF_INVERT_COLORS]))
+    cg.add(var.set_hsync_pulse_width(config[CONF_HSYNC_PULSE_WIDTH]))
     cg.add(var.set_hsync_back_porch(config[CONF_HSYNC_BACK_PORCH]))
     cg.add(var.set_hsync_front_porch(config[CONF_HSYNC_FRONT_PORCH]))
-    cg.add(var.set_hsync_pulse_width(config[CONF_HSYNC_PULSE_WIDTH]))
+    cg.add(var.set_vsync_pulse_width(config[CONF_VSYNC_PULSE_WIDTH]))
     cg.add(var.set_vsync_back_porch(config[CONF_VSYNC_BACK_PORCH]))
     cg.add(var.set_vsync_front_porch(config[CONF_VSYNC_FRONT_PORCH]))
-    cg.add(var.set_vsync_pulse_width(config[CONF_VSYNC_PULSE_WIDTH]))
-    
-    await cg.register_component(var, config)
-    await display.register_display(var, config)
+    cg.add(var.set_pclk_inverted(config[CONF_PCLK_INVERTED]))
+    cg.add(var.set_pclk_frequency(config[CONF_PCLK_FREQUENCY]))
+    dpins = []
+    if CONF_RED in config[CONF_DATA_PINS]:
+        red_pins = config[CONF_DATA_PINS][CONF_RED]
+        green_pins = config[CONF_DATA_PINS][CONF_GREEN]
+        blue_pins = config[CONF_DATA_PINS][CONF_BLUE]
+        if config[CONF_COLOR_ORDER] == "BGR":
+            dpins.extend(red_pins)
+            dpins.extend(green_pins)
+            dpins.extend(blue_pins)
+        else:
+            dpins.extend(blue_pins)
+            dpins.extend(green_pins)
+            dpins.extend(red_pins)
+        # swap bytes to match big-endian format
+        dpins = dpins[8:16] + dpins[0:8]
+    else:
+        dpins = config[CONF_DATA_PINS]
+    for index, pin in enumerate(dpins):
+        data_pin = await cg.gpio_pin_expression(pin)
+        cg.add(var.add_data_pin(data_pin, index))
+
+    if enable_pin := config.get(CONF_ENABLE_PIN):
+        enable = await cg.gpio_pin_expression(enable_pin)
+        cg.add(var.set_enable_pin(enable))
+
+    if reset_pin := config.get(CONF_RESET_PIN):
+        reset = await cg.gpio_pin_expression(reset_pin)
+        cg.add(var.set_reset_pin(reset))
+
+    if CONF_DIMENSIONS in config:
+        dimensions = config[CONF_DIMENSIONS]
+        if isinstance(dimensions, dict):
+            cg.add(var.set_dimensions(dimensions[CONF_WIDTH], dimensions[CONF_HEIGHT]))
+            cg.add(
+                var.set_offsets(
+                    dimensions[CONF_OFFSET_WIDTH], dimensions[CONF_OFFSET_HEIGHT]
+                )
+            )
+        else:
+            (width, height) = dimensions
+            cg.add(var.set_dimensions(width, height))
+
+    if lamb := config.get(CONF_LAMBDA):
+        lambda_ = await cg.process_lambda(
+            lamb, [(display.DisplayRef, "it")], return_type=cg.void
+        )
+        cg.add(var.set_writer(lambda_))
+
+    pin = await cg.gpio_pin_expression(config[CONF_DE_PIN])
+    cg.add(var.set_de_pin(pin))
+    pin = await cg.gpio_pin_expression(config[CONF_PCLK_PIN])
+    cg.add(var.set_pclk_pin(pin))
+    pin = await cg.gpio_pin_expression(config[CONF_HSYNC_PIN])
+    cg.add(var.set_hsync_pin(pin))
+    pin = await cg.gpio_pin_expression(config[CONF_VSYNC_PIN])
+    cg.add(var.set_vsync_pin(pin))
