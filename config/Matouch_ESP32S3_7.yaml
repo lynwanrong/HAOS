@@ -1,6 +1,6 @@
 esphome:
   name: matouch-esp32s3-7
-  friendly_name: Matouch_ESP32-S3_Parallel_TFT_with_Touch_7
+  friendly_name: Matouch_ESP32S3_7
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -58,7 +58,7 @@ i2c:
   - id: touch_i2c
     sda: GPIO17
     scl: GPIO18
-    scan: True
+    scan: true
 
 image:
   - id: logo
@@ -113,14 +113,14 @@ touchscreen:
     update_interval: 16ms
     i2c_id: touch_i2c
     transform:
-      swap_xy: False
-      mirror_x: False
-      mirror_y: False
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
 
 
-binary_sensor:
-  - platform: status
-    name: Status sensor
+# binary_sensor:
+#   - platform: status
+#     name: Status sensor
 
 font:
   - file: "gfonts://Roboto"
@@ -167,17 +167,12 @@ output:
   - platform: ledc
     id: lcd_pwm_output
     pin: GPIO10
-    frequency: 20000hz
-    min_power: 0.05
-
-light:
-  - platform: monochromatic
-    output: lcd_pwm_output
-    name: "Display Backlight"
-    id: display_backlight
-    default_transition_length: 0.3s
-    restore_mode: RESTORE_DEFAULT_ON
-
+    # frequency: 20000hz
+    min_power: 0.07
+    inverted: true
+#######################################################################
+#  LVGL
+#######################################################################
 lvgl:
   pages:
     - id: main_page # Default page
@@ -511,15 +506,16 @@ lvgl:
             align: TOP_RIGHT
             x: -20
             y: 25
+            max_value: 255
+            min_value: 0
+            value: 255
             height: 90%
             width: 40
-            min_value: 5
-            max_value: 100
             on_release:
               - output.set_level:
                   id: lcd_pwm_output
                   level: !lambda |-
-                    return x / 100.0;
+                    return x / 255.0;
 
         - image:
             src: logo
@@ -528,21 +524,31 @@ lvgl:
             angle: 90
             zoom: 3
 
-
-
-
-
 time:
-  - platform: homeassistant
+  - platform: sntp
     id: time_comp
     timezone: Asia/Shanghai
-    on_time_sync:
-      - script.execute: time_update
     on_time:
-      - minutes: '*'
+      - minutes: "*"
         seconds: 0
-        then:
+        then: 
           - script.execute: time_update
+      - seconds: /5
+        then:
+          lambda: |-
+            auto time = id(time_comp).now();
+            ESP_LOGI("time", "%d-%d-%d %d:%d:%d", time.year, time.month, time.day_of_month, time.hour, time.minute, time.second);     
+  # - platform: homeassistant
+  #   id: time_comp
+  #   on_time_sync:
+  #     - script.execute: time_update
+  #   on_time:
+  #     - minutes: '*'
+  #       seconds: 0
+  #       then:
+  #         - script.execute: time_update
+    
+
 
 script:
   - id: time_update
@@ -633,4 +639,3 @@ text:
     name: wd_out_now
     widget: lbl_weather_outdnoor_now
     mode: text
-

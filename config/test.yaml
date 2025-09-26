@@ -1,23 +1,47 @@
 esphome:
-  name: test
-  friendly_name: TEST
+  name: matouch-esp32s3-7
+  friendly_name: Matouch_ESP32S3_7
 
 esp32:
-  board: esp32dev
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
   framework:
     type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+      CONFIG_COMPILER_OPTIMIZATION_PERF: y
+      CONFIG_FREERTOS_UNICORE: n
+      CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH: "4096"
+      CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES: "3"
+      CONFIG_ESPTOOLPY_FLASHSIZE_16MB: y
+
+# external_components:
+#   - source:
+#       type: local
+#       path: common_components
+#     components: [rgb565]
+#     refresh: never
+
+psram:
+  mode: octal
+  speed: 80MHz
 
 # Enable logging
 logger:
-
+  level: DEBUG
 # Enable Home Assistant API
 api:
   encryption:
-    key: "rlIoKN3l2i2J1ZzTvRorNecd50a0td8hpZWK3n4h5FU="
+    key: "5DQ0UsfBrLmofn2GjgWwrlGGbaa81g22Y+dfiQYff3I="
 
 ota:
   - platform: esphome
-    password: "6fcabca394049feddab22876cd22f4ee"
+    password: "f92b6f28ac0f9f6471d5c881d1ea594d"
 
 wifi:
   ssid: !secret wifi_ssid
@@ -25,8 +49,154 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "Test Fallback Hotspot"
-    password: "GhNGE7n4QATa"
+    ssid: "matouch_esp32s3_7"
+    password: "F03ZsTI6ltRE"
 
 captive_portal:
-    
+
+i2c:
+  - id: touch_i2c
+    sda: GPIO17
+    scl: GPIO18
+    scan: true
+
+image:
+  - id: logo
+    file: "assets/logo.jpg"
+    type: RGB565
+    resize: 190x63
+
+
+display:
+  - platform: rpi_dpi_rgb
+    id: rgb_display
+    color_order: RGB
+    pclk_frequency: 16MHz
+    dimensions:
+      width: 1024
+      height: 600
+    de_pin: 40
+    hsync_pin: 39
+    vsync_pin: 41
+    pclk_pin: 42
+    hsync_back_porch: 128
+    hsync_front_porch: 40
+    hsync_pulse_width: 48
+    vsync_back_porch: 45
+    vsync_front_porch: 13
+    vsync_pulse_width: 3
+    data_pins:
+      red:
+        - 45        #r1
+        - 48        #r2
+        - 47        #r3
+        - 21        #r4
+        - 14        #r5
+      green:
+        - 5         #g0
+        - 6         #g1
+        - 7         #g2
+        - 15        #g3
+        - 16        #g4
+        - 4         #g5
+      blue:
+        - 8         #b1
+        - 3         #b2
+        - 46        #b3
+        - 9         #b4
+        - 1         #b5
+
+touchscreen:
+  - platform: gt911
+    display: rgb_display
+    id: touch_screen
+    update_interval: 16ms
+    i2c_id: touch_i2c
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+
+
+# binary_sensor:
+#   - platform: status
+#     name: Status sensor
+
+font:
+  - file: "gfonts://Roboto"
+    id: large_font
+    size: 32
+    bpp: 4
+
+
+#######################################################################
+#  LVGL
+#######################################################################
+lvgl:
+  pages:
+    - id: main_page # Default page
+      widgets:
+        - meter: # clock face
+            height: 220
+            width: 220
+            align: CENTER
+            bg_opa: TRANSP
+            border_width: 0
+            text_color: 0x000000
+            scales:
+              - range_from: 0 # minutes scale
+                range_to: 60
+                angle_range: 360
+                rotation: 90
+                ticks:
+                  width: 1
+                  count: 61
+                  length: 10
+                  color: 0x000000
+                indicators:
+                  - line:
+                      id: minute_hand
+                      width: 3
+                      color: 0xa6a6a6
+                      r_mod: -4
+                      value: 0
+              - range_from: 1 # hours scale for labels
+                range_to: 12
+                angle_range: 330
+                rotation: 30
+                ticks:
+                  width: 1
+                  count: 12
+                  length: 1
+                  major:
+                    stride: 1
+                    width: 4
+                    length: 10
+                    color: 0xC0C0C0
+                    label_gap: 12
+              - range_from: 0 # hi-res hours scale for hand
+                range_to: 720
+                angle_range: 360
+                rotation: 90
+                ticks:
+                  count: 0
+                indicators:
+                  - line:
+                      id: hour_hand
+                      width: 5
+                      color: 0xa6a6a6
+                      r_mod: -30
+                      value: 0
+
+
+
+time:
+  - platform: sntp
+    id: time_comp
+    timezone: Asia/Shanghai
+    on_time:
+      - seconds: /5
+        then:
+          lambda: |-
+            auto time = id(time_comp).now();
+            ESP_LOGI("time", "%d-%d-%d %d:%d:%d", time.year, time.month, time.day_of_month, time.hour, time.minute, time.second);     
